@@ -22,7 +22,20 @@ RESULT_UPDATE = 25
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class CartPoleAgent(object):
+    """
+    agent which tries to play the cartpole game, maintains the following variables:
+    - env: OpenAI gym environment
+    - resize: transform to downsample the screen
+    - n_actions: permissible number of actions
+    - policy_net: policy network
+    - target_net: target network
+    - optimizer: optimizer
+    - memory: priortized experience replay memory
+    """
     def __init__(self):
+        """
+        initializes all the class variables
+        """
         self.env = gym.make('CartPole-v0').unwrapped
         self.resize = T.Compose([T.ToPILImage(), 
                       T.Resize(40, interpolation=Image.CUBIC),
@@ -44,11 +57,18 @@ class CartPoleAgent(object):
         self.memory = PriortizedReplayMemory(10000)
 
     def get_cart_location(self, screen_width):
+        """
+        :param screen_width: screen width
+        :returns: cart location (in the middle of screen)
+        """
         world_width = self.env.x_threshold * 2
         scale = screen_width / world_width
         return int(self.env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
 
     def get_screen(self):
+        """
+        :returns: the processed screen to focus on the location of cart
+        """
         # Returned screen requested by gym is 400x600x3, but is sometimes larger
         # such as 800x1200x3. Transpose it into torch order (CHW).
         screen = self.env.render(mode='rgb_array').transpose((2, 0, 1))
@@ -75,6 +95,11 @@ class CartPoleAgent(object):
         return self.resize(screen).unsqueeze(0).to(device)
 
     def select_action(self, state, steps_done):
+        """
+        :param state: the state which we have assumed (as stack of 4 previous frames)
+        :param steps_done: the number of time steps done ) to decay epsilon of epsilon-greedy strategy
+        :returns: the selected actions 
+        """
         sample = random.random()
         eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
         if sample > eps_threshold:
@@ -84,6 +109,10 @@ class CartPoleAgent(object):
             return torch.tensor([[random.randrange(self.n_actions)]], device=device, dtype=torch.long)
 
     def optimize_model(self):
+        """
+        optimize model for 1 time step by sampling transitions, calculating TD errors, loss
+        and updating the memory transitions' probabilities
+        """
         if len(self.memory) < BATCH_SIZE:
             return
         transitions = self.memory.sample(BATCH_SIZE)
@@ -148,6 +177,11 @@ class CartPoleAgent(object):
         self.optimizer.step()
     
     def train(self, num_episodes=300, use_prev=None, save_path=None):
+        """
+        :param num_episodes: number of episodes to train
+        :use_prev: use previous weights to start training from
+        :param save_path: where to save the checkpoint at the end of training
+        """
         episode_durations = []
         if use_prev is not None:
             load_model(self.policy_net, self.target_net, self.optimizer, use_prev)
