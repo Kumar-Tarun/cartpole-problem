@@ -22,7 +22,7 @@ class PriortizedReplayMemory(object):
     - probs: stores the unnormalized probabilities (exponentiated by alpha)
     - position: position in memory array
     - prob_sum: sum of probabilities
-    - max_weight: max of weights
+    - max_weight: max of importance sampling weights
     - alpha, beta: hyperparameters (see paper for details)
     """
 
